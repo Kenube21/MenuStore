@@ -3,6 +3,8 @@ This module takes care of starting the API Server,
 Loading the DB and Adding the endpoints.
 """
 
+from functools import wraps
+
 from flask import request, jsonify, Blueprint
 from flask_cors import CORS
 
@@ -15,7 +17,8 @@ from werkzeug.security import (
 from flask_jwt_extended import (
     create_access_token,
     jwt_required,
-    get_jwt_identity
+    get_jwt_identity,
+    get_jwt
 )
 
 from api.models import (
@@ -38,7 +41,25 @@ api = Blueprint("api", __name__)
 CORS(api)
 
 
+def admin_required(func):
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        jwt = get_jwt()
+
+        if jwt["role"] != "admin":
+            return jsonify({
+                "error": "Rol sin Autorizacion"
+            }), 403
+
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
 @api.route("/admin/users", methods=["GET"])
+@jwt_required()
+@admin_required
 def get_users():
     statement = db.select(User)
     result = db.session.execute(statement)
