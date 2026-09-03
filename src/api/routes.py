@@ -5,6 +5,7 @@ Loading the DB and Adding the endpoints.
 
 from api.decorators import admin_required
 from api.services.checkout_service import process_checkout
+from api.services.user_service import create_user as create_user_service
 
 from flask import request, jsonify, Blueprint
 from flask_cors import CORS
@@ -62,76 +63,19 @@ def get_users():
 
 @api.route("/user", methods=["POST"])
 def create_user():
+    
     data = request.get_json()
 
-    if not data:
-        return jsonify({
-            "error": "No enviaste datos"
-        }), 400
+    user = create_user_service(data)
 
-    name = data.get("name")
-    email = data.get("email")
-    password = data.get("password")
+    return jsonify({
+                "message": "Usuario registrado correctamente",
+                "user": user.serialize()
+            }), 201
 
-    if not name or not name.strip():
-        return jsonify({
-            "error": "El nombre es obligatorio"
-        }), 400
+        
 
-    if not email or not email.strip():
-        return jsonify({
-            "error": "El correo electrónico es obligatorio"
-        }), 400
-
-    if not password:
-        return jsonify({
-            "error": "La contraseña es obligatoria"
-        }), 400
-
-    if len(password) < 6:
-        return jsonify({
-            "error": "La contraseña debe tener al menos 6 caracteres"
-        }), 400
-
-    clean_name = name.strip()
-    clean_email = email.strip().lower()
-
-    existing_user = db.session.scalar(
-        db.select(User).filter_by(email=clean_email)
-    )
-
-    if existing_user:
-        return jsonify({
-            "error": "Ya existe un usuario con ese correo electrónico"
-        }), 409
-
-    hashed_password = generate_password_hash(password)
-
-    new_user = User(
-        name=clean_name,
-        email=clean_email,
-        password=hashed_password,
-        role="client",
-        is_active=True
-    )
-
-    try:
-        db.session.add(new_user)
-        db.session.commit()
-
-        return jsonify({
-            "message": "Usuario registrado correctamente",
-            "user": new_user.serialize()
-        }), 201
-
-    except Exception as error:
-        db.session.rollback()
-
-        print("Error al crear usuario:", error)
-
-        return jsonify({
-            "error": "Error al crear el usuario"
-        }), 500
+    
 
 
 # =========================================================
