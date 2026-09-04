@@ -2,7 +2,12 @@
 from api.utils import APIException
 
 from werkzeug.security import (
-    generate_password_hash
+    generate_password_hash,
+    check_password_hash
+)
+
+from flask_jwt_extended import (
+    create_access_token
 )
 
 from api.models import (
@@ -18,7 +23,7 @@ def valid_content(value, field):
 
     if field == "password" and len(value) < 6:
         raise APIException(
-            "La contraseña debe tener al menos 6 caracteres", 411)
+            "La contraseña debe tener al menos 6 caracteres", 400)
 
 
 def create_user(data):
@@ -34,8 +39,10 @@ def create_user(data):
     valid_content(email, "email")
     valid_content(password, "password")
 
+    clean_email = email.strip().lower()
+
     existing_user = db.session.scalar(
-        db.select(User).where(User.email == email)
+        db.select(User).where(User.email == clean_email)
     )
 
     if existing_user:
@@ -44,8 +51,8 @@ def create_user(data):
     hashed_password = generate_password_hash(password)
 
     new_user = User(
-        name=name,
-        email=email,
+        name=name.strip(),
+        email=clean_email,
         password=hashed_password
     )
 
@@ -53,7 +60,6 @@ def create_user(data):
         db.session.add(new_user)
         db.session.commit()
 
-        
     except Exception as error:
         db.session.rollback()
 
@@ -122,4 +128,41 @@ def update_user(user_id, data):
 
     return user
 
-    
+
+def login_user(data):
+
+    if not data:
+        raise APIException("No enviaste datos", 400)
+
+    email = data.get("email")
+    password = data.get("password")
+
+    valid_content(email, "email")
+    valid_content(password, "password")
+
+    clean_email = email.strip().lower()
+
+    user = db.session.scalar(
+        db.select(User).where(User.email == clean_email)
+    )
+
+    if user is None:
+        raise APIException("Correo o contraseña incorrectos", 401)
+
+    if not user.is_active:
+        raise APIException("Cuenta desactivada", 403)
+
+    if user.role not in ("client", "admin"):
+        raise APIException("No corresponde a client o admin", 403)
+
+    if not check_password_hash(user.password, password):
+        raise APIException("Correo o contraseña incorrectos", 401)
+
+    access_token = create_access_token(
+        identity=str(user.id),
+        additional_claims={
+            "role": user.role
+        }
+    )
+
+    return access_token, user

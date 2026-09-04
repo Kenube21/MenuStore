@@ -7,7 +7,8 @@ from api.decorators import admin_required
 from api.services.checkout_service import process_checkout
 from api.services.user_service import (
     create_user as create_user_service,
-    update_user as update_user_service
+    update_user as update_user_service,
+    login_user as login_user_service
 )
 
 from flask import request, jsonify, Blueprint
@@ -81,59 +82,10 @@ def create_user():
 # =========================================================
 
 @api.route("/user/login", methods=["POST"])
-def login_client():
+def login_user():
     data = request.get_json()
 
-    if not data:
-        return jsonify({
-            "error": "No enviaste datos"
-        }), 400
-
-    email = data.get("email")
-    password = data.get("password")
-
-    if not email or not email.strip():
-        return jsonify({
-            "error": "El correo electrónico es obligatorio"
-        }), 400
-
-    if not password:
-        return jsonify({
-            "error": "La contraseña es obligatoria"
-        }), 400
-
-    clean_email = email.strip().lower()
-
-    user = db.session.scalar(
-        db.select(User).filter_by(email=clean_email)
-    )
-
-    if user is None:
-        return jsonify({
-            "error": "Correo o contraseña incorrectos"
-        }), 401
-
-    if not user.is_active:
-        return jsonify({
-            "error": "La cuenta está desactivada"
-        }), 403
-
-    if user.role not in ("client", "admin"):
-        return jsonify({
-            "error": "Esta cuenta no corresponde a un cliente ni administrador"
-        }), 403
-
-    if not check_password_hash(user.password, password):
-        return jsonify({
-            "error": "Correo o contraseña incorrectos"
-        }), 401
-
-    access_token = create_access_token(
-        identity=str(user.id),
-        additional_claims={
-            "role": user.role
-        }
-    )
+    access_token, user = login_user_service(data)
 
     return jsonify({
         "message": "Inicio de sesión exitoso",
