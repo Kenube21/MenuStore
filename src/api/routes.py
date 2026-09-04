@@ -5,13 +5,15 @@ Loading the DB and Adding the endpoints.
 
 from api.decorators import admin_required
 from api.services.checkout_service import process_checkout
-from api.services.user_service import create_user as create_user_service
+from api.services.user_service import (
+    create_user as create_user_service,
+    update_user as update_user_service
+)
 
 from flask import request, jsonify, Blueprint
 from flask_cors import CORS
 
 from werkzeug.security import (
-    generate_password_hash,
     check_password_hash
 )
 
@@ -63,19 +65,15 @@ def get_users():
 
 @api.route("/user", methods=["POST"])
 def create_user():
-    
+
     data = request.get_json()
 
     user = create_user_service(data)
 
     return jsonify({
-                "message": "Usuario registrado correctamente",
-                "user": user.serialize()
-            }), 201
-
-        
-
-    
+        "message": "Usuario registrado correctamente",
+        "user": user.serialize()
+    }), 201
 
 
 # =========================================================
@@ -174,81 +172,7 @@ def update_user(user_id):
 
     data = request.get_json()
 
-    if not data:
-        return jsonify({
-            "error": "No enviaste datos"
-        }), 400
-
-    user = db.session.get(User, user_id)
-
-    if user is None:
-        return jsonify({
-            "error": "Usuario no encontrado"
-        }), 404
-
-    if "image" in data:
-        user.image = data["image"]
-
-    if "name" in data:
-        new_name = data["name"]
-
-        if not new_name or not new_name.strip():
-            return jsonify({
-                "error": "El nombre no puede estar vacío"
-            }), 400
-
-        user.name = new_name.strip()
-
-    if "email" in data:
-        new_email = data["email"]
-
-        if not new_email or not new_email.strip():
-            return jsonify({
-                "error": "El correo electrónico no puede estar vacío"
-            }), 400
-
-        clean_email = new_email.strip().lower()
-
-        existing_user = db.session.scalar(
-            db.select(User).where(
-                User.email == clean_email,
-                User.id != user_id
-            )
-        )
-
-        if existing_user:
-            return jsonify({
-                "error": "Ya existe otro usuario con ese correo electrónico"
-            }), 409
-
-        user.email = clean_email
-
-    if "password" in data:
-        new_password = data["password"]
-
-        if not new_password:
-            return jsonify({
-                "error": "La contraseña no puede estar vacía"
-            }), 400
-
-        if len(new_password) < 6:
-            return jsonify({
-                "error": "La contraseña debe tener al menos 6 caracteres"
-            }), 400
-
-        user.password = generate_password_hash(new_password)
-
-    try:
-        db.session.commit()
-
-    except Exception as error:
-        db.session.rollback()
-
-        print("Error al actualizar usuario:", error)
-
-        return jsonify({
-            "error": "Error al actualizar el usuario"
-        }), 500
+    user = update_user_service(user_id, data)
 
     return jsonify(user.serialize()), 200
 
@@ -527,7 +451,6 @@ def checkout():
         "order": order.serialize()
     }), 201
 
-    
 
 # =========================================================
 # TIENDA
