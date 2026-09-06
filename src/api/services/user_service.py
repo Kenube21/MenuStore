@@ -166,3 +166,23 @@ def login_user(data):
     )
 
     return access_token, user
+
+def delete_user(user_id):
+
+    user = db.session.get(User, user_id)
+
+    if user is None:
+        raise APIException("No se encontro usuario", 404)
+
+    try:
+        db.session.delete(user)
+        db.session.commit()
+
+    except Exception as error:
+        db.session.rollback()
+
+        print("ERROR AL BORRAR USUARIO", error)
+
+        raise APIException("Error al borrar Usuario", 500)
+
+    

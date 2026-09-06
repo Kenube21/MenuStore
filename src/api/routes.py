@@ -8,7 +8,8 @@ from api.services.checkout_service import process_checkout
 from api.services.user_service import (
     create_user as create_user_service,
     update_user as update_user_service,
-    login_user as login_user_service
+    login_user as login_user_service,
+    delete_user as delete_user_service
 )
 
 from flask import request, jsonify, Blueprint
@@ -139,25 +140,7 @@ def delete_user(user_id):
             "error": "No autorizado"
         }), 403
 
-    user = db.session.get(User, user_id)
-
-    if user is None:
-        return jsonify({
-            "error": "Usuario no encontrado"
-        }), 404
-
-    try:
-        db.session.delete(user)
-        db.session.commit()
-
-    except Exception as error:
-        db.session.rollback()
-
-        print("Error al eliminar usuario:", error)
-
-        return jsonify({
-            "error": "Error al eliminar el usuario"
-        }), 500
+    delete_user_service(user_id)
 
     return jsonify({
         "message": "Usuario eliminado correctamente"
